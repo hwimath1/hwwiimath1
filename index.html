@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>곱셈공식2</title>
+  <!-- MathJax for LaTeX rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" defer></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      background: #f5f5f5;
+    }
+    h1, h2, h3 {
+      text-align: center;
+    }
+    #quiz-container {
+      max-width: 720px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    .hidden {
+      display: none;
+    }
+    .energy-bar {
+      width: 100%;
+      height: 20px;
+      background-color: #ccc;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+    .energy-inner {
+      width: 100%;
+      height: 100%;
+      background-color: #5cb85c;
+      transition: width 0.2s linear;
+    }
+    .choice {
+      margin: 5px 0;
+    }
+    .correct-answer {
+      color: blue;
+      margin-top: 10px;
+    }
+    #difficulty-container, #name-container, #quiz-container, #score-container {
+      margin-bottom: 20px;
+    }
+    #response {
+      white-space: pre-wrap;
+      font-size: 0.9em;
+      color: #333;
+      background: #eef;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+    }
+    button {
+      padding: 8px 16px;
+      margin: 5px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+    button:hover {
+      background: #ddd;
+    }
+    .center {
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<h1>곱셈공식2</h1>
+
+<!-- 난이도 선택 화면 -->
+<div id="difficulty-container">
+  <h2>난이도를 선택하세요</h2>
+  <div class="center">
+    <button onclick="selectDifficulty('top')">최상</button>
+    <button onclick="selectDifficulty('high')">상</button>
+    <button onclick="selectDifficulty('mid')">중</button>
+    <button onclick="selectDifficulty('low')">하</button>
+  </div>
+</div>
+
+<!-- 이름 입력 화면 -->
+<div id="name-container" class="hidden">
+  <h2>이름을 입력하세요</h2>
+  <div class="center">
+    <input type="text" id="userName" placeholder="이름">
+    <button onclick="startGame()">게임 시작</button>
+  </div>
+</div>
+
+<!-- 퀴즈 화면 -->
+<div id="quiz-container" class="hidden">
+  <h3 id="problemText"></h3>
+  <div id="choices"></div>
+  <div class="energy-bar" id="energyBar" style="display: none;">
+    <div class="energy-inner" id="energyInner"></div>
+  </div>
+  <div class="center">
+    <button onclick="submitAnswer()">정답 제출</button>
+  </div>
+  <div id="feedback"></div>
+  <div class="center">
+    <p id="stats"></p>
+  </div>
+</div>
+
+<!-- 점수 및 전송 화면 -->
+<div id="score-container" class="hidden">
+  <h2>게임 종료</h2>
+  <p id="finalScore"></p>
+  <p id="finalTime"></p>
+  <div class="center">
+    <button onclick="sendScore()">점수 전송</button>
+  </div>
+  <div id="response"></div>
+</div>
+
+<script>
+/* 
+  [ 안내 ]
+  1) 난이도별 시작시간:
+     - 최상(top): 30초
+     - 상(high): 40초
+     - 중(mid): 50초
+     - 하(low): 제한시간 없음(energyBar 사용 안 함)
+
+  2) 난이도별 획득점수:
+     - 최상(top): 문제 1개 정답 시 20점
+     - 상(high): 15점
+     - 중(mid): 13점
+     - 하(low): 10점
+
+  3) 3번 틀리면 게임 종료
+
+  4) 에너지바(시간)가 0이 되면 기회 1회 차감 후 다음 문제로
+
+  5) 한 문제 맞을 때마다 점수 상승
+
+  6) 틀릴 경우 정답을 즉시 표시
+
+  7) 전체 게임 시간(총 경과시간)은 계속 흘러감
+
+  8) 문제 중복 없이 모두 소진하면 게임 종료
+
+  9) 마지막에 "점수 전송" 버튼으로 서버에 결과 전송
+*/
+
+// -------------------------------------------------------------
+// 문제 데이터 (총 46문제).
+// 조건: "곱셈 공식을 이용하여 전개하시오" 각 문항은 독립적으로 하나의 문제.
+// -------------------------------------------------------------
+const problems = [
+  // -- 세트1: #1 ~ #7 --
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x+1)^3\\)를 전개하시오. 옳은 전개 결과는?",
+    choices: [
+      "\\(x^3 + 3x^2 + 3x + 1\\)",
+      "\\(x^3 + 3x^2 + 3x - 1\\)",
+      "\\(x^3 + x^2 + x + 1\\)",
+      "\\(x^3 + 3x^2 + 2x + 1\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x-1)^3\\)를 전개하시오. 옳은 전개 결과는?",
+    choices: [
+      "\\(x^3 - 3x^2 + 3x - 1\\)",
+      "\\(x^3 - 3x^2 - 3x + 1\\)",
+      "\\(x^3 - x^2 + x - 1\\)",
+      "\\(x^3 - 3x^2 + x - 1\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x-3)^3\\)를 전개하시오. 옳은 전개 결과는?",
+    choices: [
+      "\\(x^3 - 9x^2 + 27x - 27\\)",
+      "\\(x^3 - 9x^2 + 9x - 3\\)",
+      "\\(x^3 - 6x^2 + 27x - 27\\)",
+      "\\(x^3 - 9x^2 + 24x - 27\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x-2)^3\\)를 전개하시오. 옳은 전개 결과는?",
+    choices: [
+      "\\(x^3 - 6x^2 + 12x - 8\\)",
+      "\\(x^3 - 6x^2 + 8x - 12\\)",
+      "\\(x^3 - 4x^2 + 12x - 8\\)",
+      "\\(x^3 - 6x^2 + 12x + 8\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x-5)^3\\)를 전개하시오. 옳은 전개 결과는?",
+    choices: [
+      "\\(x^3 - 15x^2 + 75x - 125\\)",
+      "\\(x^3 - 10x^2 + 25x - 125\\)",
+      "\\(x^3 - 15x^2 + 25x - 125\\)",
+      "\\(x^3 - 15x^2 + 75x + 125\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x+2)^3\\)를 전개하시오. 옳은 전개 결과는?",
+    choices: [
+      "\\(x^3 + 2x^2 + 4x + 8\\)",
+      "\\(x^3 + 6x^2 + 12x + 8\\)",
+      "\\(x^3 + 6x^2 + 8x + 12\\)",
+      "\\(x^3 + 4x^2 + 6x + 8\\)"
+    ],
+    correct: 1
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x+3)^3\\)를 전개하시오. 옳은 전개 결과는?",
+    choices: [
+      "\\(x^3 + 9x^2 + 27x - 27\\)",
+      "\\(x^3 + 3x^2 + 9x + 27\\)",
+      "\\(x^3 + 9x^2 + 27x + 27\\)",
+      "\\(x^3 + 6x^2 + 12x + 27\\)"
+    ],
+    correct: 2
+  },
+
+  // -- 세트2: #8 ~ #10 --
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x+4)^3\\)를 전개하시오. 옳은 전개 결과는?",
+    choices: [
+      "\\(x^3 + 12x^2 + 16x + 64\\)",
+      "\\(x^3 + 12x^2 + 48x + 64\\)",
+      "\\(x^3 + 4x^2 + 8x + 64\\)",
+      "\\(x^3 + 8x^2 + 24x + 64\\)"
+    ],
+    correct: 1
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x-4)^3\\)를 전개하시오. 옳은 전개 결과를 고르시오.",
+    choices: [
+      "\\(x^3 - 8x^2 + 16x - 64\\)",
+      "\\(x^3 - 12x^2 + 48x - 64\\)",
+      "\\(x^3 - 12x^2 + 24x - 64\\)",
+      "\\(x^3 - 12x^2 + 48x + 64\\)"
+    ],
+    correct: 1
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x+6)^3\\)를 전개하시오. 옳은 전개 결과를 고르시오.",
+    choices: [
+      "\\(x^3 + 6x^2 + 12x + 216\\)",
+      "\\(x^3 + 12x^2 + 36x + 216\\)",
+      "\\(x^3 + 18x^2 + 108x + 216\\)",
+      "\\(x^3 + 36x^2 + 72x + 216\\)"
+    ],
+    correct: 2
+  },
+
+  // -- 세트3: #27 ~ #31 --
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((3x+1)(9x^2 - 3x + 1)\\)를 전개하시오.",
+    choices: [
+      "\\(27x^3 - 1\\)",
+      "\\(27x^3 + 3x^2 + 1\\)",
+      "\\(27x^2 + 1\\)",
+      "\\(27x^3 + 1\\)"
+    ],
+    correct: 3
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x+1)(x^2 - x + 1)\\)를 전개하시오.",
+    choices: [
+      "\\(x^3 + 1\\)",
+      "\\(x^3 + x^2 + x + 1\\)",
+      "\\(x^3 - 1\\)",
+      "\\(x^3 + 3x + 1\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((2a + 3b)(4a^2 - 6ab + 9b^2)\\)를 전개하시오.",
+    choices: [
+      "\\(8a^3 + 27b^3\\)",
+      "\\(8a^3 - 27b^3\\)",
+      "\\(2a^3 + 3b^3\\)",
+      "\\(8a^3 + 18ab^2\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x - 2)(x^2 + 2x + 4)\\)를 전개하시오.",
+    choices: [
+      "\\(x^3 - 8\\)",
+      "\\(x^3 - 2x^2 + 2x + 4\\)",
+      "\\(x^3 - 2x^2 + 4x - 8\\)",
+      "\\(x^3 - 8x^2 + 8\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((2a - b)(4a^2 + 2ab + b^2)\\)를 전개하시오.",
+    choices: [
+      "\\(8a^3 - b^3\\)",
+      "\\(8a^2 - b^3\\)",
+      "\\(8a^3 + b^3\\)",
+      "\\(8a^2 - ab^2\\)"
+    ],
+    correct: 0
+  },
+
+  // -- 세트4: #37 ~ #43 --
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x - 3)(x^2 + 3x + 9)\\)를 전개하시오.",
+    choices: [
+      "\\(x^3 - 27\\)",
+      "\\(x^3 - 9x - 27\\)",
+      "\\(x^3 + 3x^2 - 9x - 27\\)",
+      "\\(x^3 - 6x^2 + 9x - 27\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((3x - 1)(9x^2 + 3x + 1)\\)를 전개하시오.",
+    choices: [
+      "\\(27x^3 - 1\\)",
+      "\\(27x^3 + 1\\)",
+      "\\(27x^3 - 3x^2 - 1\\)",
+      "\\(27x^3 + x - 1\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x - y)(x^2 + xy + y^2)\\)를 전개하시오.",
+    choices: [
+      "\\(x^3 - y^3\\)",
+      "\\(x^3 + y^3\\)",
+      "\\(x^3 - xy^2 - y^3\\)",
+      "\\(x^3 - 3xy - y^3\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x + 2y)(x^2 - 2xy + 4y^2)\\)를 전개하시오.",
+    choices: [
+      "\\(x^3 - 8y^3\\)",
+      "\\(x^3 + 8y^3\\)",
+      "\\(x^3 + 4y^2\\)",
+      "\\(x^3 + 2xy + 8y^3\\)"
+    ],
+    correct: 1
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((a + 2b)(a^2 - 2ab + 4b^2)\\)를 전개하시오.",
+    choices: [
+      "\\(a^3 + 2a^2b + 8b^3\\)",
+      "\\(a^3 + 8b^3\\)",
+      "\\(a^3 - 8b^3\\)",
+      "\\(a^3 + 4b^3\\)"
+    ],
+    correct: 1
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((3a - 4b)(9a^2 + 12ab + 16b^2)\\)를 전개하시오.",
+    choices: [
+      "\\(27a^3 - 64b^3\\)",
+      "\\(27a^3 + 64b^3\\)",
+      "\\(27a^3 - 48ab^2\\)",
+      "\\(81a^3 - 64b^3\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((3a - 1)(9a^2 + 3a + 1)\\)를 전개하시오.",
+    choices: [
+      "\\(27a^3 + 1\\)",
+      "\\(27a^3 - 1\\)",
+      "\\(27a^3 + 3a^2 - 1\\)",
+      "\\(27a^3 - a - 1\\)"
+    ],
+    correct: 1
+  },
+
+  // -- 세트5: #44 ~ #50 --
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((a + b - c)^2\\)를 전개하시오.",
+    choices: [
+      "\\(a^2 + b^2 + c^2 + 2ab + 2bc - 2ac\\)",
+      "\\(a^2 + b^2 + c^2 + 2ab - 2bc - 2ac\\)",
+      "\\(a^2 + b^2 + c^2 - 2ab - 2bc - 2ac\\)",
+      "\\(a^2 + b^2 + c^2 - 2ab + 2bc - 2ac\\)"
+    ],
+    correct: 1
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((a + b + c)^2\\)를 전개하시오.",
+    choices: [
+      "\\(a^2 + b^2 + c^2 + 2ab + 2bc + 2ac\\)",
+      "\\(a^2 + b^2 + c^2 + 2ab - 2bc + 2ac\\)",
+      "\\(a^2 + b^2 + c^2 - 2ab + 2bc + 2ac\\)",
+      "\\(a^2 + b^2 + c^2 + 2ab + 2bc - 2ac\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((a + 2b + 3c)^2\\)를 전개하시오.",
+    choices: [
+      "\\(a^2 + 4b^2 + 9c^2 + 4ab + 12bc + 6ac\\)",
+      "\\(a^2 + 4b^2 + 9c^2 + 2ab + 6bc + 3ac\\)",
+      "\\(a^2 + 4b^2 + 9c^2 - 4ab - 12bc - 6ac\\)",
+      "\\(a^2 + 2b^2 + 6c^2 + 4ab + 12bc + 6ac\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x + y - 2z)^2\\)를 전개하시오.",
+    choices: [
+      "\\(x^2 + y^2 + 4z^2 + 2xy - 4yz - 4xz\\)",
+      "\\(x^2 + y^2 + 4z^2 - 2xy + 4yz + 4xz\\)",
+      "\\(x^2 + y^2 + 4z^2 + 2xy + 4yz - 4xz\\)",
+      "\\(x^2 - y^2 + 4z^2 - 2xy - 4yz - 4xz\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x - 3y - 2z)^2\\)를 전개하시오.",
+    choices: [
+      "\\(x^2 + 9y^2 + 4z^2 - 6xy - 4xz + 12yz\\)",
+      "\\(x^2 + 9y^2 + 4z^2 + 6xy + 4xz + 12yz\\)",
+      "\\(x^2 + 9y^2 + 4z^2 - 6xy - 8xz + 12yz\\)",
+      "\\(x^2 - 9y^2 + 4z^2 - 6xy - 4xz + 12yz\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((3x - 2y + z)^2\\)를 전개하시오.",
+    choices: [
+      "\\(9x^2 + 4y^2 + z^2 + 12xy + 6xz + 4yz\\)",
+      "\\(9x^2 + 4y^2 + z^2 - 12xy + 6xz - 4yz\\)",
+      "\\(9x^2 + 4y^2 + z^2 + 12xy - 6xz - 4yz\\)",
+      "\\(9x^2 + 4y^2 + z^2 - 12xy - 6xz + 4yz\\)"
+    ],
+    correct: 1
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x - 2y + 1)^2\\)를 전개하시오.",
+    choices: [
+      "\\(x^2 + 4y^2 + 1 - 4xy + 2x - 4y\\)",
+      "\\(x^2 + 4y^2 + 1 + 4xy + 2x - 4y\\)",
+      "\\(x^2 + 4y^2 + 1 - 4xy - 2x + 4y\\)",
+      "\\(x^2 + y^2 + 1 - 2xy + 2x - 4y\\)"
+    ],
+    correct: 0
+  },
+
+  // -- 세트6: #64 ~ #67 --
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((a + b - c)(a^2 + b^2 + c^2 - ab + bc + ca)\\)를 전개하시오.",
+    choices: [
+      "\\(a^3 + b^3 - c^3 + 3abc\\)",
+      "\\(a^3 + b^3 + c^3 - 3abc\\)",
+      "\\(a^3 + b^3 - c^3 - 3abc\\)",
+      "\\(a^3 + b^3 + c^3 + 3abc\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((a + b + 2c)(a^2 + b^2 + 4c^2 - ab - 2bc - 2ac)\\)를 전개하시오.",
+    choices: [
+      "\\(a^3 + b^3 + 8c^3 - 6abc\\)",
+      "\\(a^3 + b^3 + 8c^3 + 6abc\\)",
+      "\\(a^3 + b^3 - 8c^3 - 6abc\\)",
+      "\\(a^3 + b^3 + 8c^3 - 3abc\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x + y - 1)(x^2 + y^2 - xy + x + y + 1)\\)를 전개하시오.",
+    choices: [
+      "\\(x^3 + y^3 + 3xy - 1\\)",
+      "\\(x^3 + y^3 - 3xy - 1\\)",
+      "\\(x^3 + y^3 - xy - 1\\)",
+      "\\(x^3 + y^3 + 3xy + 1\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x + y + 2)(x^2 + y^2 - xy - 2x - 2y + 4)\\)를 전개하시오.",
+    choices: [
+      "\\(x^3 + y^3 - 6xy + 8\\)",
+      "\\(x^3 + y^3 + 6xy + 8\\)",
+      "\\(x^3 + y^3 - 6xy - 8\\)",
+      "\\(x^3 - y^3 - 6xy + 8\\)"
+    ],
+    correct: 0
+  },
+
+  // -- 세트7: #68 ~ #72 --
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x + y + 5)(x + y - 3)\\)를 전개하시오.",
+    choices: [
+      "\\(x^2 + 2xy + y^2 + 2x + 2y - 15\\)",
+      "\\(x^2 + y^2 + 2x + 5y - 15\\)",
+      "\\(x^2 + 2xy + y^2 - 2x + 2y - 15\\)",
+      "\\(x^2 + 2xy + y^2 + 2x + 3y - 15\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x^2 + x + 2)(x^2 + x + 1)\\)를 전개하시오.",
+    choices: [
+      "\\(x^4 + 2x^3 + 4x^2 + 3x + 2\\)",
+      "\\(x^4 + 2x^3 + 2x^2 + 3x + 2\\)",
+      "\\(x^4 + 2x^3 + 4x^2 + 3x - 2\\)",
+      "\\(x^4 + 2x^3 + 4x^2 - 3x + 2\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x^2 - 2x - 3)(x^2 - 2x - 2)\\)를 전개하시오.",
+    choices: [
+      "\\(x^4 - 4x^3 - x^2 + 10x + 6\\)",
+      "\\(x^4 + 4x^3 - x^2 + 10x + 6\\)",
+      "\\(x^4 - 4x^3 + x^2 + 10x + 6\\)",
+      "\\(x^4 - 4x^3 - x^2 - 10x + 6\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x^2 + 2x + 4)(x^2 - 2x + 4)\\)를 전개하시오.",
+    choices: [
+      "\\(x^4 + 4x^2 + 16\\)",
+      "\\(x^4 + 8x^2 + 16\\)",
+      "\\(x^4 + 4x^2 - 16\\)",
+      "\\(x^4 - 4x^2 + 16\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((4x^2 + 2xy + y^2)(4x^2 - 2xy + y^2)\\)를 전개하시오.",
+    choices: [
+      "\\(16x^4 + 4x^2y^2 + y^4\\)",
+      "\\(16x^4 - 4x^2y^2 + y^4\\)",
+      "\\(8x^4 + 4x^2y^2 + y^4\\)",
+      "\\(16x^4 + 4x^3y^2 + y^4\\)"
+    ],
+    correct: 0
+  },
+
+  // -- 세트8: #11 ~ #18 --
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((3x - 1)^3\\)를 전개하시오.",
+    choices: [
+      "\\(27x^3 - 27x^2 + 9x - 1\\)",
+      "\\(27x^3 - 27x^2 + 9x + 1\\)",
+      "\\(27x^3 + 27x^2 + 9x - 1\\)",
+      "\\(9x^3 - 27x^2 + 9x - 1\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((2x - 3)^3\\)를 전개하시오.",
+    choices: [
+      "\\(8x^3 - 36x^2 + 54x - 27\\)",
+      "\\(8x^3 - 12x^2 + 54x - 27\\)",
+      "\\(8x^3 - 36x^2 - 54x + 27\\)",
+      "\\(8x^3 + 36x^2 - 54x - 27\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((3x - 2)^3\\)를 전개하시오.",
+    choices: [
+      "\\(27x^3 - 54x^2 + 36x - 8\\)",
+      "\\(27x^3 - 54x^2 + 36x + 8\\)",
+      "\\(27x^3 + 54x^2 + 36x - 8\\)",
+      "\\(9x^3 - 54x^2 + 12x - 8\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((2x + 1)^3\\)를 전개하시오.",
+    choices: [
+      "\\(8x^3 + 12x^2 + 6x + 1\\)",
+      "\\(8x^3 + 12x^2 - 6x + 1\\)",
+      "\\(8x^3 + 4x^2 + 2x + 1\\)",
+      "\\(8x^3 + 8x^2 + 6x + 1\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((3x + 2)^3\\)를 전개하시오.",
+    choices: [
+      "\\(27x^3 + 54x^2 + 36x + 8\\)",
+      "\\(27x^3 - 54x^2 + 36x + 8\\)",
+      "\\(9x^3 + 6x^2 + 4x + 8\\)",
+      "\\(27x^3 + 54x^2 + 12x + 8\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x + y)^3\\)를 전개하시오.",
+    choices: [
+      "\\(x^3 + 3x^2y + 3xy^2 + y^3\\)",
+      "\\(x^3 + 3xy + y^3\\)",
+      "\\(x^3 + y^3 + 3xy^3\\)",
+      "\\(x^3 + y^3 - 3x^2y - 3xy^2\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((x - 2y)^3\\)를 전개하시오.",
+    choices: [
+      "\\(x^3 - 6x^2y + 12xy^2 - 8y^3\\)",
+      "\\(x^3 + 6x^2y + 12xy^2 + 8y^3\\)",
+      "\\(x^3 - 2x^2y + 4xy^2 - 8y^3\\)",
+      "\\(x^3 - 6x^2y - 12xy^2 - 8y^3\\)"
+    ],
+    correct: 0
+  },
+  {
+    question: "조건: 곱셈 공식을 이용하여 \\((3x - y)^3\\)를 전개하시오.",
+    choices: [
+      "\\(27x^3 - 27x^2y + 9xy^2 - y^3\\)",
+      "\\(27x^3 - 9x^2y + 27xy^2 - y^3\\)",
+      "\\(27x^3 - 27x^2y - 9xy^2 - y^3\\)",
+      "\\(9x^3 - 27x^2y + 9xy^2 - y^3\\)"
+    ],
+    correct: 0
+  }
+];
+
+// --------------------------------------------------------------------
+// 전역 변수들
+// --------------------------------------------------------------------
+let difficulty = "low";        // 선택 난이도 (기본: 하)
+let problemIndex = 0;          // 현재 문제 인덱스
+let score = 0;                 // 현재 점수
+let lives = 3;                 // 남은 기회(3번 틀리면 끝)
+let totalTime = 0;             // 전체 게임 경과시간(초)
+let questionStartTime = 0;     // 이번 문제 시작한 시각(초)
+let timeLimit = 0;             // 에너지바용 제한 시간(난이도별)
+let timerInterval = null;      // 에너지바용 setInterval
+let mainInterval = null;       // 전체 게임 시간 측정 setInterval
+let userName = "";
+
+// 난이도별 점수
+const scoreMap = {
+  "top": 20,
+  "high": 15,
+  "mid": 13,
+  "low": 10
+};
+
+// 난이도별 시작 시간
+const timeMap = {
+  "top": 30,
+  "high": 40,
+  "mid": 50,
+  "low": 99999999  // 사실상 무제한
+};
+
+// --------------------------------------------------------------------
+// 난이도 선택
+// --------------------------------------------------------------------
+function selectDifficulty(level) {
+  difficulty = level;
+  document.getElementById("difficulty-container").classList.add("hidden");
+  document.getElementById("name-container").classList.remove("hidden");
+}
+
+// --------------------------------------------------------------------
+// 게임 시작
+// --------------------------------------------------------------------
+function startGame() {
+  const inputName = document.getElementById('userName').value.trim();
+  if (!inputName) {
+    alert("이름을 입력하세요!");
+    return;
+  }
+  userName = inputName;
+
+  // 문제 배열 섞기 (문제 중복 없이 순서 무작위)
+  shuffleArray(problems);
+
+  // 난이도 설정
+  timeLimit = timeMap[difficulty];
+
+  // 초기화
+  problemIndex = 0;
+  score = 0;
+  lives = 3;
+  totalTime = 0;
+
+  // 전체 게임시간 측정 (초 단위 업데이트)
+  if (mainInterval) clearInterval(mainInterval);
+  mainInterval = setInterval(() => {
+    totalTime++;
+  }, 1000);
+
+  // UI 전환
+  document.getElementById("name-container").classList.add("hidden");
+  document.getElementById("quiz-container").classList.remove("hidden");
+
+  // 첫 문제 표시
+  showProblem();
+}
+
+// --------------------------------------------------------------------
+// 문제 표시
+// --------------------------------------------------------------------
+function showProblem() {
+  if (problemIndex >= problems.length) {
+    // 모든 문제 소진 => 게임 종료
+    endGame();
+    return;
+  }
+
+  // 시간 제한(에너지바) 재설정
+  stopTimer();
+  if (difficulty !== "low") {
+    // 에너지바 표시
+    document.getElementById("energyBar").style.display = "block";
+    document.getElementById("energyInner").style.width = "100%";
+    startTimer();
+  } else {
+    // 하 난이도 => 시간제한 없음
+    document.getElementById("energyBar").style.display = "none";
+  }
+
+  // 현재 문제 가져오기
+  const prob = problems[problemIndex];
+
+  // 문제 텍스트
+  document.getElementById("problemText").innerHTML = prob.question;
+  // 보기 표시 (랜덤 순서)
+  const cIndexArray = [0,1,2,3];
+  shuffleArray(cIndexArray);
+  let choicesHTML = "";
+  for (let i=0; i<4; i++){
+    const realIndex = cIndexArray[i];
+    choicesHTML += `
+      <div class="choice">
+        <input type="radio" name="choice" value="${realIndex}" id="choice${i}">
+        <label for="choice${i}">\\(${prob.choices[realIndex].replace(/^\\\(/,'').replace(/\\\)$/,'')}\\)</label>
+      </div>
+    `;
+  }
+  document.getElementById("choices").innerHTML = choicesHTML;
+
+  document.getElementById("feedback").innerHTML = "";
+  updateStats();
+
+  // 새로고침 후 렌더링
+  MathJax.typeset();
+}
+
+// --------------------------------------------------------------------
+// 정답 제출
+// --------------------------------------------------------------------
+function submitAnswer() {
+  const prob = problems[problemIndex];
+  const radios = document.getElementsByName("choice");
+  let selected = -1;
+  for (let r of radios) {
+    if (r.checked) {
+      selected = parseInt(r.value, 10);
+      break;
+    }
+  }
+  if (selected === -1) {
+    alert("보기를 선택하세요!");
+    return;
+  }
+
+  // 원래 정답 인덱스 (우리가 4지선다를 섞어서 보여주지만, prob.correct는 고정)
+  // 우리가 위에서 shuffle해서 choices를 뒤섞었으므로, 
+  // 실제 '선택값' selected가 prob.correct와 같은지 비교해야...
+  // 여기서 tricky하게 cIndexArray를 전역에 저장할 수도 있지만
+  // 더 간단한 해법: 'selected'는 섞인 위치, 우리가 showProblem()에서 mapping했음
+  // 대신, we can do a simpler approach: we keep an array cIndexArray in a global or local scope, but let's store it in DOM temporarily:
+  // For simplicity, let's re-check with the label text. Or we do a hidden input with the real index. We did "value='realIndex'". So if that == prob.correct => correct.
+  if (selected === prob.correct) {
+    // 정답
+    score += scoreMap[difficulty];
+    document.getElementById("feedback").innerHTML = "<p class='correct-answer'>정답입니다!</p>";
+  } else {
+    // 오답
+    lives--;
+    // 정답 표시
+    const correctExp = "\\(" + prob.choices[prob.correct].replace(/^\\\(/,'').replace(/\\\)$/,'') + "\\)";
+    document.getElementById("feedback").innerHTML = 
+      "<p style='color:red'>틀렸습니다! 정답: " + correctExp + "</p>";
+  }
+
+  // 다음 문제 준비
+  problemIndex++;
+  if (lives <= 0) {
+    // 게임 종료
+    endGame();
+  } else {
+    // 에너지바 소진 상관없이 바로 다음 문제로
+    setTimeout(() => {
+      showProblem();
+    }, 1500);
+  }
+}
+
+// --------------------------------------------------------------------
+// 에너지바 타이머 시작
+// --------------------------------------------------------------------
+function startTimer() {
+  let remain = timeLimit;
+  const bar = document.getElementById("energyInner");
+  timerInterval = setInterval(() => {
+    remain -= 0.2; // 0.2초 간격으로 조금씩 줄이기
+    if (remain <= 0) {
+      // 시간 초과 => 기회 1 감소, 다음 문제
+      lives--;
+      if (lives <= 0) {
+        // 바로 게임 종료
+        stopTimer();
+        endGame();
+        return;
+      }
+      stopTimer();
+      problemIndex++;
+      showProblem();
+    } else {
+      const percent = (remain / timeLimit) * 100;
+      bar.style.width = percent + "%";
+    }
+  }, 200);
+}
+
+// --------------------------------------------------------------------
+// 에너지바 타이머 중단
+// --------------------------------------------------------------------
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+// --------------------------------------------------------------------
+// 문제/점수/기회 표시
+// --------------------------------------------------------------------
+function updateStats() {
+  const stats = document.getElementById("stats");
+  stats.innerHTML = `
+    점수: ${score} / 남은 기회: ${lives} / 진행: ${problemIndex+1} / ${problems.length}
+  `;
+}
+
+// --------------------------------------------------------------------
+// 게임 종료
+// --------------------------------------------------------------------
+function endGame() {
+  stopTimer();
+  clearInterval(mainInterval);
+
+  // 화면 전환
+  document.getElementById("quiz-container").classList.add("hidden");
+  document.getElementById("score-container").classList.remove("hidden");
+
+  document.getElementById("finalScore").innerText = `최종 점수: ${score}점`;
+  document.getElementById("finalTime").innerText = `전체 플레이 시간: ${totalTime}초`;
+}
+
+// --------------------------------------------------------------------
+// 점수 전송
+// --------------------------------------------------------------------
+function sendScore() {
+  saveData(
+    "곱셈공식2",
+    userName,
+    score,
+    totalTime
+  );
+}
+
+// --------------------------------------------------------------------
+// 문제/보기 섞기용 범용 함수
+// --------------------------------------------------------------------
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const r = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[r]] = [arr[r], arr[i]];
+  }
+}
+
+/* 
+ [28] 아래 코드 삽입 (주어진 함수) 
+*/
+async function saveData(game, name, score, elapsedTime) {
+  const FUNCTION_URL = "https://us-central1-record-f420d.cloudfunctions.net/report";
+
+  const requestData = {
+    game,
+    name,
+    score: parseInt(score, 10),
+    elapsedTime: parseInt(elapsedTime, 10)
+  };
+
+  try {
+    const response = await fetch(FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData)
+    });
+
+    const responseData = await response.json();
+
+    if (response.ok) {
+      document.getElementById('response').innerText = 
+          `성공: ${JSON.stringify(responseData, null, 2)}`;
+    } else {
+      document.getElementById('response').innerText = 
+          `오류: ${JSON.stringify(responseData, null, 2)}`;
+    }
+  } catch (error) {
+    console.error('요청 실패:', error);
+    document.getElementById('response').innerText = 
+        `네트워크 오류: ${error.message}`;
+  }
+}
+</script>
+</body>
+</html>
